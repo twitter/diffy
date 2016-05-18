@@ -2,7 +2,7 @@ package com.twitter.diffy
 
 import com.google.inject.Provides
 import com.twitter.diffy.analysis.{InMemoryDifferenceCollector, NoiseDifferenceCounter, RawDifferenceCounter, InMemoryDifferenceCounter}
-import com.twitter.diffy.proxy.{Target, Settings}
+import com.twitter.diffy.proxy.{Target, HeaderPairs, Settings}
 import com.twitter.inject.TwitterModule
 import com.twitter.util.TimeConversions._
 import java.net.InetSocketAddress
@@ -24,6 +24,15 @@ object DiffyServiceModule extends TwitterModule {
 
   val secondaryPath =
     flag[String]("master.secondary", "secondary master serverset where known good code is deployed")
+
+  val candidateHeaders =
+    flag[String]("candidateHeaders", "", "Headers passed as key value pairs to candidate aerver. E.g:- key1:value1,key2:value2")
+
+  val primaryHeaders =
+    flag[String]("primaryHeaders", "", "Headers passed as key value pairs to primary aerver. E.g:- key1:value1,key2:value2")
+
+  val secondaryHeaders =
+    flag[String]("secondaryHeaders", "", "Headers passed as key value pairs to secondary aerver. E.g:- key1:value1,key2:value2")
 
   val protocol =
     flag[String]("service.protocol", "Service protocol, thrift or http")
@@ -79,6 +88,9 @@ object DiffyServiceModule extends TwitterModule {
       Target(candidatePath()),
       Target(primaryPath()),
       Target(secondaryPath()),
+      HeaderPairs(candidateHeaders()),
+      HeaderPairs(primaryHeaders()),
+      HeaderPairs(secondaryHeaders()),
       protocol(),
       clientId(),
       pathToThriftJar(),

@@ -10,6 +10,9 @@ case class Settings(
   candidate: Target,
   primary: Target,
   secondary: Target,
+  candidateHeaders: HeaderPairs,
+  primaryHeaders: HeaderPairs,
+  secondaryHeaders: HeaderPairs,
   protocol: String,
   clientId: String,
   pathToThriftJar: String,
@@ -27,3 +30,5 @@ case class Settings(
   skipEmailsWhenNoErrors: Boolean)
 
 case class Target(path: String)
+
+case class HeaderPairs(headerPairs: String)

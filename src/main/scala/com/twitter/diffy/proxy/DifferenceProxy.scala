@@ -51,6 +51,10 @@ trait DifferenceProxy {
   val primary   = serviceFactory(settings.primary.path, "primary")
   val secondary = serviceFactory(settings.secondary.path, "secondary")
 
+  val candidateHeaders = settings.candidateHeaders.headerPairs
+  val primaryHeaders = settings.primaryHeaders.headerPairs
+  val secondaryHeaders = settings.secondaryHeaders.headerPairs
+
   val collector: InMemoryDifferenceCollector
 
   val joinedDifferences: JoinedDifferences
@@ -58,10 +62,11 @@ trait DifferenceProxy {
   val analyzer: DifferenceAnalyzer
 
   private[this] lazy val multicastHandler =
-    new SequentialMulticastService(Seq(primary.client, candidate.client, secondary.client))
+    new SequentialMulticastService(Seq(primary.client, candidate.client, secondary.client), Seq(primaryHeaders, candidateHeaders, secondaryHeaders))
 
   def proxy = new Service[Req, Rep] {
     override def apply(req: Req): Future[Rep] = {
+
       val rawResponses =
         multicastHandler(req) respond {
           case Return(_) => log.debug("success networking")

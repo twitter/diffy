@@ -4,11 +4,12 @@ import java.net.SocketAddress
 
 import com.twitter.diffy.analysis.{DifferenceAnalyzer, JoinedDifferences, InMemoryDifferenceCollector}
 import com.twitter.diffy.lifter.{HttpLifter, Message}
+import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.diffy.proxy.DifferenceProxy.NoResponseException
-import com.twitter.finagle.{Service, Http, Filter}
+import com.twitter.finagle.{Service, SimpleFilter, Http, Filter}
 import com.twitter.finagle.http.{Status, Response, Method, Request}
 import com.twitter.util.{Try, Future}
-import org.jboss.netty.handler.codec.http.{HttpResponse, HttpRequest}
+import org.jboss.netty.handler.codec.http.{HttpResponse, HttpRequest, HttpHeaders, HttpMessage}
 
 object HttpDifferenceProxy {
   val okResponse = Future.value(Response(Status.Ok))
@@ -60,9 +61,9 @@ object SimpleHttpDifferenceProxy {
     Filter.mk[HttpRequest, HttpResponse, HttpRequest, HttpResponse] { (req, svc) =>
       val hasSideEffects =
         Set(Method.Post, Method.Put, Method.Delete).contains(Request(req).method)
-
-      if (hasSideEffects) DifferenceProxy.NoResponseExceptionFuture else svc(req)
-    }
+      if (hasSideEffects) 
+        DifferenceProxy.NoResponseExceptionFuture else svc(req)
+    } 
 }
 
 /**
