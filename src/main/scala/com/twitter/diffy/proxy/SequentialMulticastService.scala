@@ -8,55 +8,55 @@ import org.jboss.netty.handler.codec.http.HttpRequest
 case class Server(classifier: Int)
 
 class SequentialMulticastService[-A, +B, C, D](
-    services: Seq[Service[A, B]], headerPairs: Seq[C], apiRoots: Seq[D])
+                                                services: Seq[Service[A, B]], headerPairs: Seq[C], apiRoots: Seq[D])
   extends Service[A, Seq[Try[B]]]
 {
   var requestCount = 0
   var headersApplied = ""
   var dest = ""
 
-  def applyHeaders(server: Server, request: A): Unit = {
+  def applyHeaders(server: Server, request: HttpRequest): Unit = {
     val httpHeaders = server match {
       case Server(0) => headerPairs(0).toString
       case Server(1) => headerPairs(1).toString
       case Server(2) => headerPairs(2).toString
     }
-    if (request.isInstanceOf[HttpRequest]) {
+
       for ( headers <-httpHeaders.split(",") ) {
-          val valuePair = headers.split(":").map(_.trim)
-          if (valuePair.length == 2) {
-            request.asInstanceOf[HttpRequest].headers().add(valuePair(0), valuePair(1))
-            headersApplied += valuePair(0) + ","
-          }
+        val valuePair = headers.split(":").map(_.trim)
+        if (valuePair.length == 2) {
+          request.headers.add(valuePair(0), valuePair(1))
+          headersApplied += valuePair(0) + ","
+        }
       }
-    }
+
   }
-  
-  def addApiRoot(server: Server, request: A): Unit = {
+
+  def addApiRoot(server: Server, request: HttpRequest): Unit = {
     val apiRoot = server match {
       case Server(0) => apiRoots(0).toString
       case Server(1) => apiRoots(1).toString
       case Server(2) => apiRoots(2).toString
     }
 
-    if (request.isInstanceOf[HttpRequest])
-      request.asInstanceOf[HttpRequest].setUri(apiRoot + dest)
+    request.setUri(apiRoot + dest)
   }
 
-  def unapplyHeaders(request: A): Unit = {
-    if (request.isInstanceOf[HttpRequest]) {
-      for ( headers <- headersApplied.split(",") )
-          request.asInstanceOf[HttpRequest].headers().remove(headers)
-    }
+  def unapplyHeaders(request: HttpRequest): Unit = {
+    for ( headers <- headersApplied.split(",") )
+        request.headers.remove(headers)
   }
 
   def apply(request: A): Future[Seq[Try[B]]] =
     services.foldLeft[Future[Seq[Try[B]]]](Future.Nil){ case (acc, service) =>
       acc flatMap { responseTries =>
+        if (dest.equals(""))
+          dest = request.asInstanceOf[HttpRequest].getUri
         if (requestCount > 0)
-          unapplyHeaders(request)
-        applyHeaders(Server(requestCount),request)
-		addApiRoot(Server(requestCount),request)
+          unapplyHeaders(request.asInstanceOf[HttpRequest])
+        applyHeaders(Server(requestCount),request.asInstanceOf[HttpRequest])
+        addApiRoot(Server(requestCount),request.asInstanceOf[HttpRequest])
+        readXMLParameters()
         requestCount += 1
         if (requestCount == 3)
           requestCount = 0
