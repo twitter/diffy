@@ -7,12 +7,13 @@ import org.jboss.netty.handler.codec.http.HttpRequest
 
 case class Server(classifier: Int)
 
-class SequentialMulticastService[-A, +B, C](
-    services: Seq[Service[A, B]], headerPairs: Seq[C])
+class SequentialMulticastService[-A, +B, C, D](
+    services: Seq[Service[A, B]], headerPairs: Seq[C], apiRoots: Seq[D])
   extends Service[A, Seq[Try[B]]]
 {
   var requestCount = 0
   var headersApplied = ""
+  var dest = ""
 
   def applyHeaders(server: Server, request: A): Unit = {
     val httpHeaders = server match {
@@ -30,6 +31,17 @@ class SequentialMulticastService[-A, +B, C](
       }
     }
   }
+  
+  def addApiRoot(server: Server, request: A): Unit = {
+    val apiRoot = server match {
+      case Server(0) => apiRoots(0).toString
+      case Server(1) => apiRoots(1).toString
+      case Server(2) => apiRoots(2).toString
+    }
+
+    if (request.isInstanceOf[HttpRequest])
+      request.asInstanceOf[HttpRequest].setUri(apiRoot + dest)
+  }
 
   def unapplyHeaders(request: A): Unit = {
     if (request.isInstanceOf[HttpRequest]) {
@@ -44,6 +56,7 @@ class SequentialMulticastService[-A, +B, C](
         if (requestCount > 0)
           unapplyHeaders(request)
         applyHeaders(Server(requestCount),request)
+		addApiRoot(Server(requestCount),request)
         requestCount += 1
         if (requestCount == 3)
           requestCount = 0

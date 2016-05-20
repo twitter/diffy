@@ -34,6 +34,15 @@ object DiffyServiceModule extends TwitterModule {
   val secondaryHeaders =
     flag[String]("secondaryHeaders", "", "Headers passed as key value pairs to secondary aerver. E.g:- key1:value1,key2:value2")
 
+  val candidateApiRoot =
+    flag[String]("candidateApiRoot", "", "Api Root for the candidate api to call. E.g:- api/v1")
+
+  val primaryApiRoot =
+    flag[String]("primaryApiRoot", "", "Api Root for the primary api to call. E.g:- api/v2")
+
+  val secondaryApiRoot =
+    flag[String]("secondaryApiRoot", "", "Api Root for the secondary api to call. E.g:- api/v3")
+
   val protocol =
     flag[String]("service.protocol", "Service protocol, thrift or http")
 
@@ -91,6 +100,9 @@ object DiffyServiceModule extends TwitterModule {
       HeaderPairs(candidateHeaders()),
       HeaderPairs(primaryHeaders()),
       HeaderPairs(secondaryHeaders()),
+      candidateApiRoot(),
+      primaryApiRoot(),
+      secondaryApiRoot(),
       protocol(),
       clientId(),
       pathToThriftJar(),
