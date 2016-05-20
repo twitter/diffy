@@ -91,7 +91,7 @@ Inside the example directory you will find instructions to run a complete exampl
    
    You can send different HTTP Header Key value pairs to candidate, primary and secondary servers. Add `-candidateHeaders=Authorization:Basic OtxGHYUI, userRole:admin1 -primaryHeaders=Authorization:Basic NjhmskT, userRole:admin2 -secondaryHeaders=Authorization:Basic Tysfdg, userRole:admin3` to your command line arguments
    
-   You can add apiRoots to the api calls to candidate, primary and secondary servers. Add `-candidateApiRoot="api/v2" -primaryApiRoot="api/v1" -secondaryApiroot="api/v1"` to your command line arguments
+   You can add apiRoots to the api calls to candidate, primary and secondary servers. Add `-candidateApiRoot="api/v2" -primaryApiRoot="api/v1" -secondaryApiroot="api/v1"` to your command line arguments. Usage:- curl 'localhost:8880/getAllMessages' will send a request candidateServer:candidatePort/api/v2/getAllMessages to candidate server while it will send primaryServer:primaryPort/api/v1/getAllMessages to primary server
 
 
 ## License
