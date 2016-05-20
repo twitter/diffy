@@ -90,6 +90,8 @@ Inside the example directory you will find instructions to run a complete exampl
    For safety reasons `POST`, `PUT`, ` DELETE ` are ignored by default . Add ` -allowHttpSideEffects=true ` to your command line arguments to enable these verbs.
    
    You can send different HTTP Header Key value pairs to candidate, primary and secondary servers. Add `-candidateHeaders=Authorization:Basic OtxGHYUI, userRole:admin1 -primaryHeaders=Authorization:Basic NjhmskT, userRole:admin2 -secondaryHeaders=Authorization:Basic Tysfdg, userRole:admin3` to your command line arguments
+   
+   You can add apiRoots to the api calls to candidate, primary and secondary servers. Add `-candidateApiRoot="api/v2" -primaryApiRoot="api/v1" -secondaryApiroot="api/v1"` to your command line arguments
 
 
 ## License
