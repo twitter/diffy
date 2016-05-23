@@ -94,8 +94,7 @@ Inside the example directory you will find instructions to run a complete exampl
    You can add apiRoots to the api calls to candidate, primary and secondary servers. Add `-candidateApiRoot="api/v2" -primaryApiRoot="api/v1" -secondaryApiroot="api/v1"` to your command line arguments. Usage:- curl 'localhost:8880/getAllMessages' will send a request candidateServer:candidatePort/api/v2/getAllMessages to candidate server while it will send primaryServer:primaryPort/api/v1/getAllMessages to primary server
    
    You can now substitute different queryParam values before multicasting to the three different servers. Usage:-  curl 'localhost:8880/api/getUserMessages?message=userId'. Create a file apiParams.xml with the following structure
-   
-   <apiParams>
+	<apiParams>
 	  <userId>
 		<candidate>
 		  12
@@ -109,7 +108,7 @@ Inside the example directory you will find instructions to run a complete exampl
 	  </userId>
 	</apiParams>
 	
-	This will send a request candidateServer:candidatePort/api/getUserMessages?message=12 to candidate server while sending primaryServer:primaryPort/api/getUserMessages?message=13 and secondaryServer:secondaryPort/api/getUserMessages?message=14 request to primary and secondary servers respectively.
+This will send a request candidateServer:candidatePort/api/getUserMessages?message=12 to candidate server while sending primaryServer:primaryPort/api/getUserMessages?message=13 and secondaryServer:secondaryPort/api/getUserMessages?message=14 request to primary and secondary servers respectively.
 
 
 ## License
