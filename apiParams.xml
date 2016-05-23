@@ -1,0 +1,13 @@
+<apiParams>
+  <userId>
+    <candidate>
+      12
+    </candidate>
+    <primary>
+      13
+    </primary>
+    <secondary>
+      14
+    </secondary>
+  </userId>
+</apiParams>
