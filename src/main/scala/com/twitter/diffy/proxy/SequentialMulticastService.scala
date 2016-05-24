@@ -7,8 +7,7 @@ import org.jboss.netty.handler.codec.http.HttpRequest
 
 case class Server(classifier: Int)
 
-class SequentialMulticastService[-A, +B, C, D](
-                                                services: Seq[Service[A, B]], headerPairs: Seq[C], apiRoots: Seq[D])
+class SequentialMulticastService[-A, +B, C, D](services: Seq[Service[A, B]], headerPairs: Seq[C], apiRoots: Seq[D])
   extends Service[A, Seq[Try[B]]]
 {
   var requestCount = 0
@@ -78,16 +77,18 @@ class SequentialMulticastService[-A, +B, C, D](
   def apply(request: A): Future[Seq[Try[B]]] =
     services.foldLeft[Future[Seq[Try[B]]]](Future.Nil){ case (acc, service) =>
       acc flatMap { responseTries =>
-        if (dest.equals(""))
-          dest = request.asInstanceOf[HttpRequest].getUri
-        if (requestCount > 0)
-          unapplyHeaders(request.asInstanceOf[HttpRequest])
-        applyHeaders(Server(requestCount),request.asInstanceOf[HttpRequest])
-        addApiRoot(Server(requestCount),request.asInstanceOf[HttpRequest])
-        substituteParams(Server(requestCount),request.asInstanceOf[HttpRequest])
-        requestCount += 1
-        if (requestCount == 3)
-          requestCount = 0
+        if (request.isInstanceOf[HttpRequest]) {
+          if (dest.equals(""))
+            dest = request.asInstanceOf[HttpRequest].getUri
+          if (requestCount > 0)
+            unapplyHeaders(request.asInstanceOf[HttpRequest])
+          applyHeaders(Server(requestCount), request.asInstanceOf[HttpRequest])
+          addApiRoot(Server(requestCount), request.asInstanceOf[HttpRequest])
+          substituteParams(Server(requestCount), request.asInstanceOf[HttpRequest])
+          requestCount += 1
+          if (requestCount == 3)
+            requestCount = 0
+        }
         val nextResponse = service(request).liftToTry
         nextResponse map { responseTry => responseTries ++ Seq(responseTry) }
 
