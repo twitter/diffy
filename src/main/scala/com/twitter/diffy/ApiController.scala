@@ -33,7 +33,7 @@ class ApiController @Inject()(
     JoinedEndpoint: JoinedEndpoint,
     includeWeights: Boolean,
     excludeNoise: Boolean
-  ) =
+  ) : Map[String, Map[String, Any]] =
     Map(
       "endpoint" -> Renderer.endpoint(JoinedEndpoint.endpoint),
       "fields" ->

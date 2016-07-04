@@ -1,7 +1,7 @@
 package com.twitter.diffy.proxy
 
-import com.twitter.finagle.{Addr, Name, Resolver, Service}
 import com.twitter.finagle.thrift.ThriftClientRequest
+import com.twitter.finagle.{Addr, Name, Service}
 import com.twitter.util.{Time, Var}
 import org.jboss.netty.handler.codec.http.{HttpRequest, HttpResponse}
 
@@ -42,7 +42,7 @@ case class ThriftService(
     }
   }
 
-  private[this] def sizeChange(size: Int) {
+  private[this] def sizeChange(size: Int) : Unit = {
     changeCount += 1
     if (changeCount > 1) {
       changedAt = Some(Time.now)
