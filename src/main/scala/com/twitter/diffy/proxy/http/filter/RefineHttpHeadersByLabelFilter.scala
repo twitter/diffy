@@ -1,12 +1,13 @@
-package com.twitter.diffy.proxy
+package com.twitter.diffy.proxy.http.filter
 
 import com.twitter.finagle.Filter
 import com.twitter.finagle.http.Request
 import com.twitter.util.Future
-import org.jboss.netty.handler.codec.http.{HttpResponse, HttpHeaders, HttpRequest}
+import org.jboss.netty.handler.codec.http.{HttpHeaders, HttpRequest, HttpResponse}
+
 import scala.collection.JavaConverters._
 
-object RefineHttpHeadersByLabel {
+object RefineHttpHeadersByLabelFilter {
   val knownLabels: Seq[String] = Seq("primary", "secondary", "candidate")
 
   def substitute(inclusions: Seq[String], exclusion: Seq[String])(req: HttpRequest) : HttpRequest = {
@@ -36,8 +37,10 @@ object RefineHttpHeadersByLabel {
       inclusion <- inclusions if name.startsWith(inclusion + "_")
     } yield name->name.substring(inclusion.length+1)
 
+    val (removals, rewrites2) = rewrites.partition(_._2.isEmpty)
     incomingHeaders.filter( removeExclusion).foreach( headers.remove )
-    rewrites.foreach((renameHeaders(headers) _ ).tupled)
+    removals.map(_._1).foreach( headers.remove )
+    rewrites2.foreach((renameHeaders(headers) _ ).tupled)
 
     reqOut
   }

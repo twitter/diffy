@@ -1,8 +1,9 @@
-package com.twitter.diffy.proxy
+package com.twitter.diffy.proxy.http.filter
 
 import com.twitter.finagle.Filter
 import com.twitter.util.Future
-import org.jboss.netty.handler.codec.http.{HttpHeaders, DefaultHttpRequest, HttpResponse, HttpRequest}
+import org.jboss.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaders, HttpRequest, HttpResponse}
+
 import scala.collection.JavaConverters._
 
 object CloneHttpRequestFilter {
