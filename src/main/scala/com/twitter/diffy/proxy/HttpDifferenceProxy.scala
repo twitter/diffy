@@ -12,6 +12,7 @@ import com.twitter.util.{Future, Try}
 import org.jboss.netty.handler.codec.http.{HttpRequest, HttpResponse}
 
 object HttpDifferenceProxy {
+
   val okResponse = Future.value(Response(Status.Ok))
 
   val noResponseExceptionFilter =
@@ -39,7 +40,7 @@ trait HttpDifferenceProxy extends DifferenceProxy {
   override def serviceFactory(serverset: String, label: String) =
     HttpService(
       CloneHttpRequestFilter.apply.
-        andThen(RefineHttpHeadersByLabelFilter(label)).
+        andThen(RefineHttpHeadersByLabelFilter(label, DifferenceProxy.AllLabels)).
         andThen(Http.newClient(serverset, label).toService))
 
   override lazy val server =

@@ -25,12 +25,15 @@ object DifferenceProxyModule extends TwitterModule {
 }
 
 object DifferenceProxy {
+  val AllLabels: Seq[String] = Seq("primary", "secondary", "candidate")
+
   object NoResponseException extends Exception("No responses provided by diffy")
   val NoResponseExceptionFuture = Future.exception(NoResponseException)
   val log = Logger(classOf[DifferenceProxy])
 }
 
 trait DifferenceProxy {
+
   import DifferenceProxy._
 
   type Req

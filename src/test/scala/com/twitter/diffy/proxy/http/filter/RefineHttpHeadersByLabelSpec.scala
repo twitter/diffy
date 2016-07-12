@@ -40,7 +40,7 @@ trait HeaderTransformations extends ParentSpec with TwitterFutures {  this: FunS
   def aFilterThatTargetsLabel(label:String, labelEx1:String, labelEx2:String) : Unit ={
     describe(s"given a $label filter"){
       val subject: Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] =
-        RefineHttpHeadersByLabelFilter(label)
+        RefineHttpHeadersByLabelFilter(label, List(label, labelEx1, labelEx2))
 
       describe("given empty headers"){
         it must behave like anEchoServiceForHeaders(subject, Map.empty, Map.empty)
@@ -48,6 +48,9 @@ trait HeaderTransformations extends ParentSpec with TwitterFutures {  this: FunS
       describe("given a set of headers"){
         val headers=Map(("A", "B"), ("C-c", "D-d"))
         it must behave like anEchoServiceForHeaders(subject, headers, headers)
+      }
+      describe(s"given an exact $label header"){
+        it must behave like anEchoServiceForHeaders(subject, Map( (s"$label", "X")), Map((s"$label", "X")))
       }
       describe(s"given a $label prefixed header"){
         it must behave like anEchoServiceForHeaders(subject, Map( (s"${label}_X", "X")), Map(("X", "X")))
