@@ -25,7 +25,7 @@ object JsonLifter {
     case JsonToken.START_ARRAY        =>
       node.elements.toSeq.map {
         element => lift(element)
-      }  sortBy { _.toString }
+      }
     case JsonToken.START_OBJECT       => {
       val fields = node.fieldNames.toSet
       if (fields.exists{ field => Try(toolbox.parse(s"object ${field}123")).isThrow}) {
