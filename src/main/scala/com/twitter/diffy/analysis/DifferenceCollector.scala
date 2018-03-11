@@ -1,116 +1,136 @@
 package com.twitter.diffy.analysis
 
-import javax.inject.Inject
-
-import com.twitter.diffy.compare.{Difference, PrimitiveDifference}
-import com.twitter.diffy.lifter.{JsonLifter, Message}
+import com.twitter.diffy.compare.Difference
 import com.twitter.diffy.thriftscala._
-import com.twitter.finagle.tracing.Trace
-import com.twitter.logging._
-import com.twitter.util.{Future, Time}
-import com.twitter.util.StorageUnitConversions._
-import scala.util.Random
+import com.twitter.util.Future
+import java.util.concurrent.atomic.AtomicInteger
 
-object DifferenceAnalyzer {
-  val UndefinedEndpoint = Some("Undefined_endpoint")
-  val log = Logger(classOf[DifferenceAnalyzer])
-  log.setUseParentHandlers(false)
-  log.addHandler(
-    FileHandler(
-      filename = "differences.log",
-      rollPolicy = Policy.MaxSize(128.megabytes),
-      rotateCount = 2
-    )()
-  )
+import com.twitter.logging.Logger
 
-  def normalizeEndpointName(name: String) = name.replace("/", "-")
+import scala.collection.mutable
+
+class InMemoryDifferenceCounter extends DifferenceCounter {
+  val endpointsMap: mutable.Map[String, InMemoryEndpointMetadata] = mutable.Map.empty
+
+  protected[this] def endpointCollector(ep: String) = {
+    if (!endpointsMap.contains(ep)) {
+      endpointsMap += ep -> new InMemoryEndpointMetadata()
+    }
+    endpointsMap(ep)
+  }
+
+  override def endpoints: Future[Map[String, EndpointMetadata]] = Future {
+    endpointsMap.toMap filter { _._2.total > 0 }
+  }
+
+  override def clear(): Future[Unit] = Future { endpointsMap.clear() }
+
+  override def fields(ep: String): Future[Map[String, FieldMetadata]] =
+    Future { endpointCollector(ep).fields }
+
+  override def count(endpoint: String, diffs: Map[String, Difference]): Future[Unit] =
+    Future { endpointCollector(endpoint).add(diffs) }
 }
 
-case class Field(endpoint: String, prefix: String)
+class InMemoryFieldMetadata extends FieldMetadata {
+  val atomicCount = new AtomicInteger(0)
+  val atomicSiblingsCount = new AtomicInteger(0)
 
-class DifferenceAnalyzer @Inject()(
-    rawCounter: RawDifferenceCounter,
-    noiseCounter: NoiseDifferenceCounter,
-    store: InMemoryDifferenceCollector)
-{
-  import DifferenceAnalyzer._
+  def differences: Int = atomicCount.get
+  // The total # of siblings that saw differences when this field saw a difference
+  def weight: Int = atomicSiblingsCount.get
 
-  def apply(
-    request: Message,
-    candidate: Message,
-    primary: Message,
-    secondary: Message
-  ): Unit = {
-    getEndpointName(request.endpoint, candidate.endpoint,
-        primary.endpoint, secondary.endpoint) foreach { endpointName =>
-      // If there is no traceId then generate our own
-      val id = Trace.idOption map { _.traceId.toLong } getOrElse(Random.nextLong)
+  def apply(diffs: Map[String, Difference]): Int = {
+    atomicCount.incrementAndGet()
+    atomicSiblingsCount.addAndGet(diffs.size)
+  }
+}
 
-      val rawDiff = Difference(primary, candidate).flattened
-      val noiseDiff = Difference(primary, secondary).flattened
+class InMemoryEndpointMetadata extends EndpointMetadata {
+  val atomicTotalCount = new AtomicInteger(0)
+  val atomicDifferencesCount = new AtomicInteger(0)
 
-      rawCounter.counter.count(endpointName, rawDiff)
-      noiseCounter.counter.count(endpointName, noiseDiff)
+  def total: Int = atomicTotalCount.get
+  def differences: Int = atomicDifferencesCount.get
 
-      if (rawDiff.size > 0) {
-        val diffResult = DifferenceResult(
-          id,
-          Trace.idOption map { _.traceId.toLong },
-          endpointName,
-          Time.now.inMillis,
-          differencesToJson(rawDiff),
-          JsonLifter.encode(request.result),
-          Responses(
-            candidate = JsonLifter.encode(candidate.result),
-            primary = JsonLifter.encode(primary.result),
-            secondary = JsonLifter.encode(secondary.result)
-          )
+  private[this] val _fields = new mutable.HashMap[String, InMemoryFieldMetadata]
+
+  def allResults: Iterable[InMemoryFieldMetadata] = _fields.values
+
+  def getMetadata(field: String): InMemoryFieldMetadata = {
+    if (!_fields.contains(field)) {
+      _fields += (field -> new InMemoryFieldMetadata)
+    }
+    _fields(field)
+  }
+
+  def fields: Map[String, InMemoryFieldMetadata] = _fields.toMap
+
+  def add(diffs: Map[String, Difference]): Unit = {
+    atomicTotalCount.incrementAndGet()
+    if (diffs.size > 0) {
+      atomicDifferencesCount.incrementAndGet()
+    }
+    diffs foreach { case (fieldPath, _) =>
+      getMetadata(fieldPath)(diffs)
+    }
+  }
+}
+
+object InMemoryDifferenceCollector {
+  val DifferenceResultNotFoundException =
+    Future.exception(new Exception("Difference result not found"))
+}
+
+trait DifferenceCollector {
+  def create(dr: DifferenceResult): Unit
+  def prefix(field: Field): Future[Iterable[DifferenceResult]]
+  def apply(id: Long): Future[DifferenceResult]
+  def clear(): Future[Unit]
+}
+
+class InMemoryDifferenceCollector extends DifferenceCollector{
+  import InMemoryDifferenceCollector._
+  val logger = Logger(classOf[DifferenceCollector])
+  val requestsPerField: Int = 5
+  val fields = mutable.Map.empty[Field, mutable.Queue[DifferenceResult]]
+
+  private[this] def sanitizePath(p: String) = p.stripSuffix("/").stripPrefix("/")
+
+  def create(dr: DifferenceResult): Unit = {
+    logger.info("create called on in memory difference collector")
+    dr.differences foreach { case (path, _) =>
+      val queue =
+        fields.getOrElseUpdate(
+          Field(dr.endpoint, sanitizePath(path)),
+          mutable.Queue.empty[DifferenceResult]
         )
 
-        log.info(s"diff[$id]=$diffResult")
-        store.create(diffResult)
-      } else {
-        log.debug(s"diff[$id]=NoDifference")
+      if (queue.size < requestsPerField) {
+        queue.enqueue(dr)
       }
     }
+    Future.value(dr)
   }
 
-  def clear(): Future[Unit] =
-    Future.join(
-      rawCounter.counter.clear(),
-      noiseCounter.counter.clear(),
-      store.clear()
-    ) map { _ => () }
-
-  def differencesToJson(diffs: Map[String, Difference]): Map[String, String] =
-    diffs map {
-      case (field, diff @ PrimitiveDifference(_: Long, _)) =>
-        field ->
-          JsonLifter.encode(
-            diff.toMap map {
-              case (k, v) => k -> v.toString
-            }
-          )
-
-      case (field, diff) => field -> JsonLifter.encode(diff.toMap)
-    }
-
-  private[this] def getEndpointName(
-      requestEndpoint: Option[String],
-      candidateEndpoint: Option[String],
-      primaryEndpoint: Option[String],
-      secondaryEndpoint: Option[String]): Option[String] = {
-    val rawEndpointName = (requestEndpoint, candidateEndpoint, primaryEndpoint, secondaryEndpoint) match {
-      case (Some(_), _, _, _) => requestEndpoint
-      // undefined endpoint when action header is missing from all three instances
-      case (_, None, None, None) => UndefinedEndpoint
-      // the assumption is that primary and secondary should call the same endpoint,
-      // otherwise it's noise and we should discard the request
-      case (_, None, _, _) if primaryEndpoint == secondaryEndpoint => primaryEndpoint
-      case (_, None, _, _) => None
-      case (_, Some(candidate), _, _) => candidateEndpoint
-    }
-
-    rawEndpointName map { normalizeEndpointName(_) }
+  def prefix(field: Field): Future[Iterable[DifferenceResult]] = Future {
+    (fields flatMap {
+      case (Field(endpoint, path), value)
+        if endpoint == field.endpoint && path.startsWith(field.prefix) => value
+      case _ => Nil
+    }).toSeq.distinct
   }
+
+  def apply(id: Long): Future[DifferenceResult] =
+    // Collect first instance of this difference showing up in all the fields
+    fields.toStream map { case (field, queue) =>
+      queue.find { _.id == id }
+    } collectFirst {
+      case Some(dr) => dr
+    } match {
+      case Some(dr) => Future.value(dr)
+      case None => DifferenceResultNotFoundException
+    }
+
+  def clear(): Future[Unit] = Future { fields.clear() }
 }

@@ -1,14 +1,14 @@
 package com.twitter.diffy.proxy
 
-import java.net.SocketAddress
+import java.net.{InetSocketAddress, SocketAddress}
 
-import com.twitter.diffy.analysis.{DifferenceAnalyzer, JoinedDifferences, InMemoryDifferenceCollector}
+import com.twitter.diffy.analysis.{DifferenceAnalyzer, DifferenceCollector, JoinedDifferences}
 import com.twitter.diffy.lifter.{HttpLifter, Message}
 import com.twitter.diffy.proxy.DifferenceProxy.NoResponseException
-import com.twitter.finagle.{Service, Http, Filter}
-import com.twitter.finagle.http.{Status, Response, Method, Request}
-import com.twitter.util.{Try, Future}
-import org.jboss.netty.handler.codec.http.{HttpResponse, HttpRequest}
+import com.twitter.finagle.{Filter, Http, Service}
+import com.twitter.finagle.http.{Method, Request, Response, Status}
+import com.twitter.util.{Future, Try}
+import org.jboss.netty.handler.codec.http.{HttpRequest, HttpResponse}
 
 object HttpDifferenceProxy {
   val okResponse = Future.value(Response(Status.Ok))
@@ -73,7 +73,7 @@ object SimpleHttpDifferenceProxy {
  */
 case class SimpleHttpDifferenceProxy (
     settings: Settings,
-    collector: InMemoryDifferenceCollector,
+    collector: DifferenceCollector,
     joinedDifferences: JoinedDifferences,
     analyzer: DifferenceAnalyzer)
   extends HttpDifferenceProxy
@@ -92,16 +92,17 @@ case class SimpleHttpDifferenceProxy (
  */
 case class SimpleHttpsDifferenceProxy (
    settings: Settings,
-   collector: InMemoryDifferenceCollector,
+   collector: DifferenceCollector,
    joinedDifferences: JoinedDifferences,
    analyzer: DifferenceAnalyzer)
   extends HttpDifferenceProxy
 {
   import SimpleHttpDifferenceProxy._
 
-  override val servicePort = settings.servicePort
 
-  override val proxy =
+  override val servicePort: InetSocketAddress = settings.servicePort
+
+  override val proxy: Service[HttpRequest, HttpResponse] =
     Filter.identity andThenIf
       (!settings.allowHttpSideEffects, httpSideEffectsFilter) andThen
       super.proxy

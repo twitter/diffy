@@ -55,6 +55,7 @@ lazy val baseSettings = Seq(
     "com.twitter" %% "scrooge-generator" % "4.0.0",
     "javax.mail" % "mail" % "1.4.7",
     "org.jsoup" % "jsoup" % "1.7.2",
+    "com.github.etaty" %% "rediscala" % "1.8.0",
     "org.scala-lang" % "scala-compiler" % scalaVersion.value
   ) ++ finatraDependencies ++ testDependencies.map(_ % "test"),
   assemblyMergeStrategy in assembly := {

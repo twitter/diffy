@@ -4,13 +4,14 @@ import com.twitter.diffy.proxy._
 import com.twitter.diffy.workflow._
 import com.twitter.finatra.http.HttpServer
 import com.twitter.finatra.http.routing.HttpRouter
+import com.twitter.inject.TwitterModule
 
 object Main extends MainService
 
 class MainService extends HttpServer {
   override val name = "diffy"
 
-  override val modules =
+  override val modules: Seq[TwitterModule] =
     Seq(
       DiffyServiceModule,
       DifferenceProxyModule,

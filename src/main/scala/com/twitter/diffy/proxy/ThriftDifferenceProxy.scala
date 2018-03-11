@@ -3,7 +3,7 @@ package com.twitter.diffy.proxy
 import java.io.File
 import java.util.zip.ZipFile
 
-import com.twitter.diffy.analysis.{DifferenceAnalyzer, JoinedDifferences, InMemoryDifferenceCollector}
+import com.twitter.diffy.analysis.{DifferenceAnalyzer, JoinedDifferences, DifferenceCollector}
 import com.twitter.diffy.lifter.{MapLifterPool, Message, ThriftLifter}
 import com.twitter.diffy.scrooge._
 import com.twitter.finagle.{Resolver, Thrift, ThriftMux}
@@ -12,10 +12,10 @@ import com.twitter.util.{Try, Future}
 import scala.collection.JavaConversions._
 
 case class ThriftDifferenceProxy (
-    settings: Settings,
-    collector: InMemoryDifferenceCollector,
-    joinedDifferences: JoinedDifferences,
-    analyzer: DifferenceAnalyzer)
+                                   settings: Settings,
+                                   collector: DifferenceCollector,
+                                   joinedDifferences: JoinedDifferences,
+                                   analyzer: DifferenceAnalyzer)
   extends DifferenceProxy
 {
   override type Req = ThriftClientRequest

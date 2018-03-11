@@ -18,7 +18,7 @@ class EmailSender(log: Logger, send: MimeMessage => Unit = Transport.send) {
   private[this] val props = new Properties
   props.put("mail.smtp.host", "localhost")
   props.put("mail.smtp.auth", "false")
-  props.put("mail.smtp.port", "25")
+  props.put("mail.smtp.port", "1025")
 
   private[this] val session = Session.getDefaultInstance(props, null)
 
