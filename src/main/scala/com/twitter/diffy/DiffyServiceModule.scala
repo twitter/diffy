@@ -1,11 +1,12 @@
 package com.twitter.diffy
 
 import com.google.inject.Provides
-import com.twitter.diffy.analysis.{InMemoryDifferenceCollector, NoiseDifferenceCounter, RawDifferenceCounter, InMemoryDifferenceCounter}
-import com.twitter.diffy.proxy.{Target, Settings}
+import com.twitter.diffy.analysis._
+import com.twitter.diffy.proxy.{Settings, Target}
 import com.twitter.inject.TwitterModule
 import com.twitter.util.TimeConversions._
 import java.net.InetSocketAddress
+
 import javax.inject.Singleton
 import com.twitter.util.Duration
 
@@ -110,5 +111,5 @@ object DiffyServiceModule extends TwitterModule {
 
   @Provides
   @Singleton
-  def providesCollector = new InMemoryDifferenceCollector
+  def providesCollector: DifferenceCollector = new RedisStoreDifferenceCollector()
 }

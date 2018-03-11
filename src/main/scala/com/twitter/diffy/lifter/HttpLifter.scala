@@ -27,7 +27,7 @@ class HttpLifter(excludeHttpHeadersComparison: Boolean) {
 
   private[this] val log = Logger(classOf[HttpLifter])
   private[this] def headersMap(response: HttpResponse): Map[String, Any] = {
-    if(!excludeHttpHeadersComparison) {
+    if (!excludeHttpHeadersComparison) {
       val rawHeaders = response.headers.entries().map { header =>
         (header.getKey, header.getValue)
       }.toSeq

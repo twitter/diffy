@@ -1,0 +1,152 @@
+diff --git a/src/main/scala/com/twitter/diffy/Main.scala b/src/main/scala/com/twitter/diffy/Main.scala
+index 9b04fd4..6d91c93 100644
+--- a/src/main/scala/com/twitter/diffy/Main.scala
++++ b/src/main/scala/com/twitter/diffy/Main.scala
+@@ -4,13 +4,14 @@ import com.twitter.diffy.proxy._
+ import com.twitter.diffy.workflow._
+ import com.twitter.finatra.http.HttpServer
+ import com.twitter.finatra.http.routing.HttpRouter
++import com.twitter.inject.TwitterModule
+ 
+ object Main extends MainService
+ 
+ class MainService extends HttpServer {
+   override val name = "diffy"
+ 
+-  override val modules =
++  override val modules: Seq[TwitterModule] =
+     Seq(
+       DiffyServiceModule,
+       DifferenceProxyModule,
+diff --git a/src/main/scala/com/twitter/diffy/analysis/DifferenceCollector.scala b/src/main/scala/com/twitter/diffy/analysis/DifferenceCollector.scala
+index 82e53e0..befd46e 100644
+--- a/src/main/scala/com/twitter/diffy/analysis/DifferenceCollector.scala
++++ b/src/main/scala/com/twitter/diffy/analysis/DifferenceCollector.scala
+@@ -69,6 +69,13 @@ class DifferenceAnalyzer @Inject()(
+ 
+         log.info(s"diff[$id]=$diffResult")
+         store.create(diffResult)
++        if(true) {//req.headers.contains(syncS3)) {
++          //request has header so we sync in memory to s3
++          val endpoints = proxy.joinedDifferences.raw.counter.endpoints
++          store.fields.toSeq.select((field, diff) => {})
++          store.prefix(Field())
++          clear();
++        }
+       } else {
+         log.debug(s"diff[$id]=NoDifference")
+       }
+diff --git a/src/main/scala/com/twitter/diffy/analysis/InMemoryDifferenceCollector.scala b/src/main/scala/com/twitter/diffy/analysis/InMemoryDifferenceCollector.scala
+index 9526a01..9190657 100644
+--- a/src/main/scala/com/twitter/diffy/analysis/InMemoryDifferenceCollector.scala
++++ b/src/main/scala/com/twitter/diffy/analysis/InMemoryDifferenceCollector.scala
+@@ -33,11 +33,11 @@ class InMemoryFieldMetadata extends FieldMetadata {
+   val atomicCount = new AtomicInteger(0)
+   val atomicSiblingsCount = new AtomicInteger(0)
+ 
+-  def differences = atomicCount.get
++  def differences: Int = atomicCount.get
+   // The total # of siblings that saw differences when this field saw a difference
+-  def weight = atomicSiblingsCount.get
++  def weight: Int = atomicSiblingsCount.get
+ 
+-  def apply(diffs: Map[String, Difference]) = {
++  def apply(diffs: Map[String, Difference]): Int = {
+     atomicCount.incrementAndGet()
+     atomicSiblingsCount.addAndGet(diffs.size)
+   }
+@@ -47,12 +47,12 @@ class InMemoryEndpointMetadata extends EndpointMetadata {
+   val atomicTotalCount = new AtomicInteger(0)
+   val atomicDifferencesCount = new AtomicInteger(0)
+ 
+-  def total = atomicTotalCount.get
+-  def differences = atomicDifferencesCount.get
++  def total: Int = atomicTotalCount.get
++  def differences: Int = atomicDifferencesCount.get
+ 
+   private[this] val _fields = new mutable.HashMap[String, InMemoryFieldMetadata]
+ 
+-  def allResults = _fields.values
++  def allResults: Iterable[InMemoryFieldMetadata] = _fields.values
+ 
+   def getMetadata(field: String): InMemoryFieldMetadata = {
+     if (!_fields.contains(field)) {
+@@ -88,6 +88,7 @@ class InMemoryDifferenceCollector {
+   private[this] def sanitizePath(p: String) = p.stripSuffix("/").stripPrefix("/")
+ 
+   def create(dr: DifferenceResult): Unit = {
++    //This is the method that takes differences between candidate,primary and secondary. forevery request to the proxy port this gets called on each repsonse that has differences from primary and candidate
+     dr.differences foreach { case (path, _) =>
+       val queue =
+         fields.getOrElseUpdate(
+diff --git a/src/main/scala/com/twitter/diffy/lifter/HttpLifter.scala b/src/main/scala/com/twitter/diffy/lifter/HttpLifter.scala
+index 8abfde6..299dce1 100644
+--- a/src/main/scala/com/twitter/diffy/lifter/HttpLifter.scala
++++ b/src/main/scala/com/twitter/diffy/lifter/HttpLifter.scala
+@@ -27,7 +27,7 @@ class HttpLifter(excludeHttpHeadersComparison: Boolean) {
+ 
+   private[this] val log = Logger(classOf[HttpLifter])
+   private[this] def headersMap(response: HttpResponse): Map[String, Any] = {
+-    if(!excludeHttpHeadersComparison) {
++    if (!excludeHttpHeadersComparison) {
+       val rawHeaders = response.headers.entries().map { header =>
+         (header.getKey, header.getValue)
+       }.toSeq
+diff --git a/src/main/scala/com/twitter/diffy/proxy/DifferenceProxy.scala b/src/main/scala/com/twitter/diffy/proxy/DifferenceProxy.scala
+index 924967f..9f51139 100644
+--- a/src/main/scala/com/twitter/diffy/proxy/DifferenceProxy.scala
++++ b/src/main/scala/com/twitter/diffy/proxy/DifferenceProxy.scala
+@@ -61,16 +61,18 @@ trait DifferenceProxy {
+   private[this] lazy val multicastHandler =
+     new SequentialMulticastService(Seq(primary.client, candidate.client, secondary.client))
+ 
+-  def proxy = new Service[Req, Rep] {
++  def proxy: Service[Req, Rep] {
++    def apply(req: Req): Future[Rep]
++  } = new Service[Req, Rep] {
+     override def apply(req: Req): Future[Rep] = {
+-      val rawResponses =
++      val rawResponses: Future[Seq[Try[Rep]]] =
+         multicastHandler(req) respond {
+           case Return(_) => log.debug("success networking")
+           case Throw(t) => log.debug(t, "error networking")
+         }
+ 
+       val responses: Future[Seq[Message]] =
+-        rawResponses flatMap { reps =>
++        rawResponses flatMap { reps: Seq[Try[Rep]] =>
+           Future.collect(reps map liftResponse) respond {
+             case Return(rs) =>
+               log.debug(s"success lifting ${rs.head.endpoint}")
+@@ -88,6 +90,9 @@ trait DifferenceProxy {
+             case Throw(t) => log.debug(t, "error lifting request")
+           } foreach { req =>
+             analyzer(req, candidateResponse, primaryResponse, secondaryResponse)
++            if(true) {
++              // )
++            }
+           }
+       }
+ 
+@@ -95,7 +100,7 @@ trait DifferenceProxy {
+     }
+   }
+ 
+-  def clear() = {
++  def clear(): Future[Unit] = {
+     lastReset = Time.now
+     analyzer.clear()
+   }
+diff --git a/src/main/scala/com/twitter/diffy/util/EmailSender.scala b/src/main/scala/com/twitter/diffy/util/EmailSender.scala
+index 783d9b4..75fa2ec 100644
+--- a/src/main/scala/com/twitter/diffy/util/EmailSender.scala
++++ b/src/main/scala/com/twitter/diffy/util/EmailSender.scala
+@@ -18,7 +18,7 @@ class EmailSender(log: Logger, send: MimeMessage => Unit = Transport.send) {
+   private[this] val props = new Properties
+   props.put("mail.smtp.host", "localhost")
+   props.put("mail.smtp.auth", "false")
+-  props.put("mail.smtp.port", "25")
++  props.put("mail.smtp.port", "1025")
+ 
+   private[this] val session = Session.getDefaultInstance(props, null)
+ 

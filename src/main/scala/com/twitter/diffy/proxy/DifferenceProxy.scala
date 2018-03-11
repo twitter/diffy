@@ -8,15 +8,16 @@ import com.twitter.finagle._
 import com.twitter.inject.TwitterModule
 import com.twitter.logging.Logger
 import com.twitter.util._
+import org.jboss.netty.handler.codec.http.HttpRequest
 
 object DifferenceProxyModule extends TwitterModule {
   @Provides
   @Singleton
   def providesDifferenceProxy(
-    settings: Settings,
-    collector: InMemoryDifferenceCollector,
-    joinedDifferences: JoinedDifferences,
-    analyzer: DifferenceAnalyzer
+                               settings: Settings,
+                               collector: DifferenceCollector,
+                               joinedDifferences: JoinedDifferences,
+                               analyzer: DifferenceAnalyzer
   ): DifferenceProxy =
     settings.protocol match {
       case "thrift" => ThriftDifferenceProxy(settings, collector, joinedDifferences, analyzer)
@@ -52,7 +53,7 @@ trait DifferenceProxy {
   val primary   = serviceFactory(settings.primary.path, "primary")
   val secondary = serviceFactory(settings.secondary.path, "secondary")
 
-  val collector: InMemoryDifferenceCollector
+  val collector: DifferenceCollector
 
   val joinedDifferences: JoinedDifferences
 
@@ -61,16 +62,18 @@ trait DifferenceProxy {
   private[this] lazy val multicastHandler =
     new SequentialMulticastService(Seq(primary.client, candidate.client, secondary.client))
 
-  def proxy = new Service[Req, Rep] {
+  def proxy: Service[Req, Rep] {
+    def apply(req: Req): Future[Rep]
+  } = new Service[Req, Rep] {
     override def apply(req: Req): Future[Rep] = {
-      val rawResponses =
+      val rawResponses: Future[Seq[Try[Rep]]] =
         multicastHandler(req) respond {
           case Return(_) => log.debug("success networking")
           case Throw(t) => log.debug(t, "error networking")
         }
 
       val responses: Future[Seq[Message]] =
-        rawResponses flatMap { reps =>
+        rawResponses flatMap { reps: Seq[Try[Rep]] =>
           Future.collect(reps map liftResponse) respond {
             case Return(rs) =>
               log.debug(s"success lifting ${rs.head.endpoint}")
@@ -95,7 +98,7 @@ trait DifferenceProxy {
     }
   }
 
-  def clear() = {
+  def clear(): Future[Unit] = {
     lastReset = Time.now
     analyzer.clear()
   }
