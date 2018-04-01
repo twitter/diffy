@@ -10,6 +10,12 @@ case class Settings(
   candidate: Target,
   primary: Target,
   secondary: Target,
+  candidateHeaders: HeaderPairs,
+  primaryHeaders: HeaderPairs,
+  secondaryHeaders: HeaderPairs,
+  candidateApiRoot: String,
+  primaryApiRoot: String,
+  secondaryApiRoot: String,
   protocol: String,
   clientId: String,
   pathToThriftJar: String,
@@ -28,3 +34,5 @@ case class Settings(
   httpsPort: String)
 
 case class Target(path: String)
+
+case class HeaderPairs(headerPairs: String)

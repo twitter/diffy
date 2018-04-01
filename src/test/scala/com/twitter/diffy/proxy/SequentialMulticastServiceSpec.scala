@@ -12,7 +12,8 @@ class SequentialMulticastServiceSpec extends ParentSpec {
 
   describe("SequentialMulticastService"){
     val first, second = mock[Service[String, String]]
-    val multicastHandler = new SequentialMulticastService(Seq(first, second))
+    val third = Seq("primaryHeaders", "candidateHeaders", "secondaryHeaders")
+    val multicastHandler = new SequentialMulticastService(Seq(first, second), third, Seq("", "", ""))
 
     it("must not access second until first is done"){
       val firstResponse, secondResponse = new Promise[String]
@@ -31,11 +32,12 @@ class SequentialMulticastServiceSpec extends ParentSpec {
       val request = "anyString"
       val services = Seq.fill(100)(mock[Service[String, Int]])
       val responses = Seq.fill(100)(new Promise[Int])
+      val headers = Seq("primaryHeaders", "candidateHeaders", "secondaryHeaders")
       val svcResp = services zip responses
       svcResp foreach { case (service, response) =>
         when(service(request)) thenReturn response
       }
-      val sequentialMulticast = new SequentialMulticastService(services)
+      val sequentialMulticast = new SequentialMulticastService(services,headers,Seq("", "", ""))
       val result = sequentialMulticast("anyString")
       def verifySequentialInteraction(s: Seq[((Service[String,Int], Promise[Int]), Int)]): Unit = s match {
         case Nil =>
