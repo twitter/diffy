@@ -1,13 +1,15 @@
 package com.twitter.diffy
 
 import com.google.inject.Provides
-import com.twitter.diffy.analysis.{InMemoryDifferenceCollector, NoiseDifferenceCounter, RawDifferenceCounter, InMemoryDifferenceCounter}
-import com.twitter.diffy.proxy.{Target, Settings}
+import com.twitter.diffy.analysis.{InMemoryDifferenceCollector, InMemoryDifferenceCounter, NoiseDifferenceCounter, RawDifferenceCounter}
+import com.twitter.diffy.proxy.{Settings, Target}
 import com.twitter.inject.TwitterModule
 import com.twitter.util.TimeConversions._
+import com.twitter.util.StorageUnitConversions._
 import java.net.InetSocketAddress
+
 import javax.inject.Singleton
-import com.twitter.util.Duration
+import com.twitter.util.{Duration, StorageUnit}
 
 object DiffyServiceModule extends TwitterModule {
   val datacenter =
@@ -73,6 +75,12 @@ object DiffyServiceModule extends TwitterModule {
   var httpsPort =
     flag[String]("httpsPort", "443", "Port to be used when using HTTPS as a protocol")
 
+  var maxRequestSize =
+    flag[StorageUnit]("maxRequestSize", 5.megabytes, "Maximum size for HTTPS request, e.g 5.megabytes")
+
+  var maxResponseSize =
+    flag[StorageUnit]("maxResponseSize", 5.megabytes, "Maximum size for HTTPS responses, e.g 5.megabytes")
+
   @Provides
   @Singleton
   def settings =
@@ -97,7 +105,9 @@ object DiffyServiceModule extends TwitterModule {
       allowHttpSideEffects(),
       excludeHttpHeadersComparison(),
       skipEmailsWhenNoErrors(),
-      httpsPort()
+      httpsPort(),
+      maxRequestSize(),
+      maxResponseSize()
     )
 
   @Provides
