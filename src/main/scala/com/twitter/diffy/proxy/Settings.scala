@@ -2,7 +2,7 @@ package com.twitter.diffy.proxy
 
 import java.net.InetSocketAddress
 
-import com.twitter.util.Duration
+import com.twitter.util.{Duration, StorageUnit}
 
 case class Settings(
   datacenter: String,
@@ -25,6 +25,8 @@ case class Settings(
   allowHttpSideEffects: Boolean,
   excludeHttpHeadersComparison: Boolean,
   skipEmailsWhenNoErrors: Boolean,
-  httpsPort: String)
+  httpsPort: String,
+  maxRequestSize: StorageUnit,
+  maxResponseSize: StorageUnit )
 
 case class Target(path: String)

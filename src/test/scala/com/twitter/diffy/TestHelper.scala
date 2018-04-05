@@ -4,9 +4,11 @@ import java.net.InetSocketAddress
 
 import com.twitter.diffy.proxy._
 import com.twitter.util.TimeConversions._
+import com.twitter.util.StorageUnitConversions._
 import org.scalatest.mock.MockitoSugar
 import com.twitter.diffy.analysis._
 import com.twitter.diffy.compare.Difference
+import com.twitter.util.StorageUnit
 
 object TestHelper extends MockitoSugar {
   lazy val testSettings = Settings(
@@ -30,7 +32,9 @@ object TestHelper extends MockitoSugar {
     allowHttpSideEffects = true,
     excludeHttpHeadersComparison = true,
     skipEmailsWhenNoErrors = false,
-    httpsPort = "443"
+    httpsPort = "443",
+    maxRequestSize = 5.megabytes,
+    maxResponseSize = 5.megabytes
   )
 
   def makeEmptyJoinedDifferences = {
