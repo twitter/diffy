@@ -56,7 +56,8 @@ lazy val baseSettings = Seq(
     "com.twitter" %% "scrooge-generator" % "4.0.0",
     "javax.mail" % "mail" % "1.4.7",
     "org.jsoup" % "jsoup" % "1.7.2",
-    "org.scala-lang" % "scala-compiler" % scalaVersion.value
+    "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    "org.json4s" %% "json4s-native" % "3.2.11"
   ) ++ finatraDependencies ++ testDependencies.map(_ % "test"),
   assemblyMergeStrategy in assembly := {
     case "BUILD" => MergeStrategy.discard
