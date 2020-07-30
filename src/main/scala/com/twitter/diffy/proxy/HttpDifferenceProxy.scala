@@ -2,15 +2,17 @@ package com.twitter.diffy.proxy
 
 import java.net.SocketAddress
 
-import com.twitter.diffy.analysis.{DifferenceAnalyzer, JoinedDifferences, InMemoryDifferenceCollector}
+import com.twitter.diffy.analysis.{DifferenceAnalyzer, InMemoryDifferenceCollector, JoinedDifferences}
 import com.twitter.diffy.lifter.{HttpLifter, Message}
 import com.twitter.diffy.proxy.DifferenceProxy.NoResponseException
-import com.twitter.finagle.{Service, Http, Filter}
-import com.twitter.finagle.http.{Status, Response, Method, Request}
-import com.twitter.util.{Try, Future}
-import org.jboss.netty.handler.codec.http.{HttpResponse, HttpRequest}
+import com.twitter.diffy.proxy.http.filter.{CloneHttpRequestFilter, RefineHttpHeadersByLabelFilter}
+import com.twitter.finagle.http.{Method, Request, Response, Status}
+import com.twitter.finagle.{Filter, Http, Service}
+import com.twitter.util.{Future, Try}
+import org.jboss.netty.handler.codec.http.{HttpRequest, HttpResponse}
 
 object HttpDifferenceProxy {
+
   val okResponse = Future.value(Response(Status.Ok))
 
   val noResponseExceptionFilter =
@@ -34,8 +36,12 @@ trait HttpDifferenceProxy extends DifferenceProxy {
   override type Rep = HttpResponse
   override type Srv = HttpService
 
+
   override def serviceFactory(serverset: String, label: String) =
-    HttpService(Http.newClient(serverset, label).toService)
+    HttpService(
+      CloneHttpRequestFilter.apply.
+        andThen(RefineHttpHeadersByLabelFilter(label, DifferenceProxy.AllLabels)).
+        andThen(Http.newClient(serverset, label).toService))
 
   override lazy val server =
     Http.serve(
